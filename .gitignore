@@ -1,0 +1,20 @@
+# macOS metadata
+.DS_Store
+._*
+
+# Packaged builds for the Chrome Web Store
+*.zip
+*.crx
+*.pem
+
+# Output of export.sh
+dist/
+
+# Personal documentation
+docs/
+
+# Assets for the Chrome Web Store listing
+store/
+
+# Claude go brrrr
+.claude/

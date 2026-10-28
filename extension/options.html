@@ -1,0 +1,243 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Middle Click Autoscroll</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --window: #f2f2f7; --group: #fff; --fg: #1d1d1f; --muted: #6e6e73; --faint: #8e8e93;
+    --line: rgba(60, 60, 67, .13); --edge: rgba(0, 0, 0, .06); --field: rgba(118, 118, 128, .12);
+    --track: rgba(120, 120, 128, .2); --accent: #007aff; --danger: #ff3b30;
+    --shadow: 0 0 0 .5px rgba(0, 0, 0, .04), 0 1px 2px rgba(0, 0, 0, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --window: #1c1c1e; --group: #2c2c2e; --fg: #f5f5f7; --muted: #a1a1a6; --faint: #8e8e93;
+      --line: rgba(84, 84, 88, .55); --edge: rgba(255, 255, 255, .06); --field: rgba(118, 118, 128, .24);
+      --track: rgba(120, 120, 128, .36); --accent: #0a84ff; --danger: #ff453a;
+      --shadow: 0 0 0 .5px rgba(255, 255, 255, .05);
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; padding: 14px 14px 12px; width: 360px; min-height: 100%;
+    background: var(--window); color: var(--fg);
+    font: 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased; user-select: none;
+  }
+  header { display: flex; align-items: center; gap: 10px; padding: 2px 4px 12px; }
+  header img { width: 34px; height: 34px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .18)); }
+  header .title { flex: 1; min-width: 0; }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+  header .sub { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+
+  /* groups */
+  section { margin-top: 14px; }
+  .label { color: var(--muted); font-size: 12px; font-weight: 500; padding: 0 12px 6px; }
+  .group, .site {
+    background: var(--group); border-radius: 12px; box-shadow: var(--shadow);
+    border: .5px solid var(--edge); overflow: hidden;
+  }
+  .group > * { padding: 10px 12px; }
+  .group > * + * { border-top: .5px solid var(--line); }
+  .hint { color: var(--muted); font-size: 11.5px; margin-top: 2px; font-weight: 400; }
+  .footnote { color: var(--faint); font-size: 11.5px; padding: 6px 12px 0; font-variant-numeric: tabular-nums; }
+
+  /* rows with a switch */
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .row > label:first-child { flex: 1; cursor: default; }
+  .switch { position: relative; width: 38px; height: 22px; flex: none; display: block; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch span {
+    position: absolute; inset: 0; border-radius: 11px; background: var(--track);
+    box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background .2s;
+  }
+  .switch span::after {
+    content: ""; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 1px rgba(0, 0, 0, .12), 0 2px 5px rgba(0, 0, 0, .18);
+    transition: transform .2s cubic-bezier(.3, .7, .3, 1);
+  }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(16px); }
+  .switch input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
+
+  /* sliders */
+  .slider .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .slider output { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .slider .val { display: flex; align-items: center; gap: 4px; }
+  .reset1 {
+    border: 0; background: none; padding: 0 3px; color: var(--accent); font-size: 13px; line-height: 1;
+    border-radius: 4px; cursor: default;
+  }
+  .reset1:hover { background: var(--field); }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 20px; margin: 4px 0 0; background: none;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 2px;
+    background: linear-gradient(to right, var(--accent) var(--fill, 50%), var(--track) var(--fill, 50%));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 0 .5px rgba(0, 0, 0, .1), 0 1px 2px rgba(0, 0, 0, .2), 0 3px 6px rgba(0, 0, 0, .12);
+  }
+  input[type=range]:active::-webkit-slider-thumb { background: #f0f0f0; }
+  input[type=range]:focus-visible { outline: none; }
+  input[type=range]:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+
+  /* current-site card */
+  .site { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .site .text { flex: 1; min-width: 0; }
+  .site .host { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .site .state { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+  body.off .site { opacity: .5; }
+  .site.unavailable .host { color: var(--muted); }
+  .site.unavailable .state { white-space: normal; }
+  .site + .site { margin-top: 8px; }
+
+  /* disabled-sites list */
+  .sites { list-style: none; margin: 0; padding: 0 !important; }
+  .sites li { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; }
+  .sites li + li { border-top: .5px solid var(--line); }
+  .sites li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+  .sites li button {
+    border: 0; background: var(--field); color: var(--muted); width: 18px; height: 18px; padding: 0;
+    border-radius: 50%; font-size: 13px; line-height: 18px; text-align: center;
+  }
+  .sites li button:hover { background: var(--danger); color: #fff; }
+  .sites .empty { color: var(--faint); }
+  form.add { display: flex; gap: 8px; }
+  form.add input {
+    flex: 1; min-width: 0; padding: 5px 9px; border-radius: 7px; border: .5px solid var(--edge);
+    background: var(--field); color: var(--fg); font: inherit; user-select: text;
+  }
+  form.add input::placeholder { color: var(--faint); }
+  form.add input:focus { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  form.add input.invalid { outline: 3px solid color-mix(in srgb, var(--danger) 55%, transparent); }
+
+  /* buttons */
+  button { font: inherit; cursor: default; }
+  .push {
+    padding: 4px 12px; border-radius: 7px; border: .5px solid var(--edge); color: var(--fg);
+    background: var(--group); box-shadow: 0 .5px 1px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .06);
+  }
+  .push:active { filter: brightness(.94); }
+  .push.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 500; }
+  .buttons { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px; }
+  #saved { color: var(--muted); font-size: 11.5px; opacity: 0; transition: opacity .2s; }
+  #saved.show { opacity: 1; }
+  #saved.error { color: var(--danger); }
+</style>
+</head>
+<body>
+  <header>
+    <img src="icons/icon128.png" alt="">
+    <div class="title">
+      <h1>Middle Click Autoscroll</h1>
+      <div class="sub">Autoscroll with the middle button</div>
+    </div>
+    <label class="switch" title="Enable autoscroll">
+      <input type="checkbox" id="enabled"><span></span>
+    </label>
+  </header>
+
+  <div class="site" id="winCard" hidden>
+    <div class="text">
+      <div class="host">Built into Chrome on Windows</div>
+      <div class="state" id="winState"></div>
+    </div>
+    <label class="switch" title="Use this extension instead of Chrome's own autoscroll">
+      <input type="checkbox" id="useOnWindows"><span></span>
+    </label>
+  </div>
+
+  <div class="site" id="site" hidden>
+    <div class="text">
+      <div class="host" id="siteHost"></div>
+      <div class="state" id="siteState"></div>
+    </div>
+    <label class="switch" id="siteSwitch" title="Enable on this site">
+      <input type="checkbox" id="siteEnabled"><span></span>
+    </label>
+  </div>
+
+  <section>
+    <div class="label">Scrolling</div>
+    <div class="group">
+      <div class="slider">
+        <div class="top"><label for="speed">Speed</label><span class="val"><button class="reset1" data-key="speed" title="Reset to default" hidden>↺</button><output id="speedOut"></output></span></div>
+        <input type="range" id="speed" min="0.25" max="4" step="0.05">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="exponent">Acceleration curve</label><span class="val"><button class="reset1" data-key="exponent" title="Reset to default" hidden>↺</button><output id="exponentOut"></output></span></div>
+        <input type="range" id="exponent" min="1" max="3" step="0.1">
+        <div class="hint">How sharply speed ramps up as you move away from the click point. 1.0 is linear.</div>
+      </div>
+      <div class="slider">
+        <div class="top"><label for="deadZone">Dead zone</label><span class="val"><button class="reset1" data-key="deadZone" title="Reset to default" hidden>↺</button><output id="deadZoneOut"></output></span></div>
+        <input type="range" id="deadZone" min="0" max="50" step="1">
+        <div class="hint">How far you can move from the click point before scrolling starts.</div>
+      </div>
+      <div class="row">
+        <label for="sameSpeedOnAllDisplays">Same speed on every display
+          <div class="hint">Off: standard displays scroll faster than Retina ones, as in Chrome.</div>
+        </label>
+        <label class="switch"><input type="checkbox" id="sameSpeedOnAllDisplays"><span></span></label>
+      </div>
+    </div>
+    <div class="footnote" id="preview"></div>
+  </section>
+
+  <section>
+    <div class="label">Behavior</div>
+    <div class="group">
+      <div class="row">
+        <label for="stickyMode">Click and release keeps scrolling
+          <div class="hint">Off: scroll only while holding the middle button.</div>
+        </label>
+        <label class="switch"><input type="checkbox" id="stickyMode"><span></span></label>
+      </div>
+      <div class="row">
+        <label for="showMarker">Show origin marker
+          <div class="hint">Off: only the cursor changes, as in Chrome on Windows.</div>
+        </label>
+        <label class="switch"><input type="checkbox" id="showMarker"><span></span></label>
+      </div>
+      <div class="row">
+        <label for="linksOpenTabs">Middle-clicking a link opens a new tab
+          <div class="hint">Off: autoscroll starts on links too.</div>
+        </label>
+        <label class="switch"><input type="checkbox" id="linksOpenTabs"><span></span></label>
+      </div>
+      <div class="row">
+        <label for="pauseHover">Pause hover effects while autoscrolling
+          <div class="hint">Can make busy pages smoother. The page's hover effects pause until you stop.</div>
+        </label>
+        <label class="switch"><input type="checkbox" id="pauseHover"><span></span></label>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Disabled sites</div>
+    <div class="group">
+      <ul class="sites" id="sites"></ul>
+      <form class="add" id="addForm">
+        <input id="addInput" placeholder="example.com" spellcheck="false" autocomplete="off">
+        <button type="submit" class="push primary">Add</button>
+      </form>
+    </div>
+    <div class="footnote">Subdomains are included.</div>
+  </section>
+
+  <section class="buttons">
+    <button id="reset" class="push">Reset to Defaults</button>
+    <span id="saved">Saved</span>
+  </section>
+
+  <script src="defaults.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
